@@ -49,12 +49,41 @@ impl<T: ArrowPrimitiveType> DistinctSumAccumulator<T> {
         }
     }
 
+    /// Get the number of distinct values stored in the accumulator.
+    ///
+    /// The returned value is the count of unique values currently held in the internal distinct buffer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // `acc` is a DistinctSumAccumulator created elsewhere.
+    /// // let acc = DistinctSumAccumulator::new(DataType::Int32);
+    /// // assert_eq!(acc.distinct_count(), 0);
+    /// ```
     pub fn distinct_count(&self) -> usize {
         self.values.values.len()
     }
 }
 
 impl<T: ArrowPrimitiveType + Send + Sync + Debug> Accumulator for DistinctSumAccumulator<T> {
+    /// Produces the accumulator's current state as a vector of scalar values.
+    ///
+    /// The vector contains the serialized representation of the internal distinct buffer and is suitable for persisting or merging accumulator state.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<ScalarValue>` representing the accumulator's distinct-state; empty if no distinct values are stored.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use datafusion_common::ScalarValue;
+    /// use arrow::datatypes::DataType;
+    /// // Construct a DistinctSumAccumulator for i64 values and obtain its state.
+    /// let mut acc = DistinctSumAccumulator::<arrow::datatypes::Int64Type>::new(DataType::Int64);
+    /// let state: Vec<ScalarValue> = acc.state().unwrap();
+    /// assert!(state.is_empty());
+    /// ```
     fn state(&mut self) -> Result<Vec<ScalarValue>> {
         self.values.state()
     }

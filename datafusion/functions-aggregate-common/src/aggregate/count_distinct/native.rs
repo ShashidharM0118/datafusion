@@ -53,6 +53,20 @@ where
     T: ArrowPrimitiveType + Send,
     S: DistinctStorage<Native = T::Native>,
 {
+    /// Creates a new accumulator configured for the specified Arrow data type.
+    ///
+    /// The accumulator will use an internal distinct-value buffer appropriate for `data_type`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use arrow::datatypes::DataType;
+    /// use datafusion::functions_aggregate_common::aggregate::count_distinct::native::FloatDistinctCountAccumulator;
+    /// use arrow::datatypes::Float64Type;
+    ///
+    /// let acc = FloatDistinctCountAccumulator::<Float64Type>::new(&DataType::Float64);
+    /// # let _ = acc;
+    /// ```
     pub fn new(data_type: &DataType) -> Self {
         Self {
             values: GenericDistinctBuffer::new(data_type.clone()),
@@ -65,6 +79,17 @@ where
     T: ArrowPrimitiveType + Send + Sync + Debug,
     S: DistinctStorage<Native = T::Native>,
 {
+    /// Returns the accumulator's current distinct-value state as a vector of `ScalarValue`.
+    ///
+    /// The returned vector represents the serialized accumulator state suitable for merging
+    /// with other partial aggregation states.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // assuming `acc` is a `PrimitiveDistinctCountAccumulator` previously populated:
+    /// let state: Vec<datafusion_common::ScalarValue> = acc.state().unwrap();
+    /// ```
     fn state(&mut self) -> datafusion_common::Result<Vec<ScalarValue>> {
         self.values.state()
     }
@@ -81,6 +106,17 @@ where
         Ok(ScalarValue::Int64(Some(self.values.values.len() as i64)))
     }
 
+    /// Compute the total memory footprint of the accumulator, including its internal buffer.
+    ///
+    /// Returns the total number of bytes used by the accumulator (the struct plus its stored values).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // Given a `PrimitiveDistinctCountAccumulator` instance `acc`:
+    /// let bytes = acc.size();
+    /// assert!(bytes >= std::mem::size_of_val(&acc));
+    /// ```
     fn size(&self) -> usize {
         size_of_val(self) + self.values.size()
     }

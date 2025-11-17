@@ -514,6 +514,20 @@ struct DistinctMedianAccumulator<T: ArrowNumericType> {
 }
 
 impl<T: ArrowNumericType + Send + Sync + Debug> Accumulator for DistinctMedianAccumulator<T> {
+    /// Returns the accumulator's intermediate scalar state representing the distinct values collected so far.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<ScalarValue>` containing the serialized state of the distinct-values buffer, suitable for merging or serialization.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // `acc` is a DistinctMedianAccumulator instantiated elsewhere.
+    /// // The call below retrieves its current serialized state.
+    /// let mut acc = /* DistinctMedianAccumulator::<arrow::datatypes::Int32Type> */ unimplemented!();
+    /// let state = acc.state().unwrap();
+    /// ```
     fn state(&mut self) -> Result<Vec<ScalarValue>> {
         self.distinct_values.state()
     }

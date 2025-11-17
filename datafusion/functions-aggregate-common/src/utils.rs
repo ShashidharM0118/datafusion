@@ -104,7 +104,11 @@ pub trait DistinctStorage: Default + std::fmt::Debug + Send + Sync {
     /// Return the number of distinct values stored
     fn len(&self) -> usize;
 
-    /// Return whether the storage is empty
+    /// Checks whether the storage contains any values.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the storage contains no values, `false` otherwise.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -125,18 +129,70 @@ where
 {
     type Native = T;
 
+    /// Inserts a value into the distinct-value storage.
+    ///
+    /// Returns `true` if the value was not previously present and was inserted, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashSet;
+    ///
+    /// let mut s: HashSet<i32> = HashSet::new();
+    /// assert!(s.insert(1)); // newly inserted
+    /// assert!(!s.insert(1)); // already present
+    /// ```
     fn insert(&mut self, value: Self::Native) -> bool {
         HashSet::insert(self, value)
     }
 
+    /// Returns the number of distinct values currently stored.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashSet;
+    /// let mut set: HashSet<i32> = HashSet::new();
+    /// set.insert(10);
+    /// assert_eq!(set.len(), 1);
+    /// ```
     fn len(&self) -> usize {
         HashSet::len(self)
     }
 
+    /// Returns an iterator that yields owned copies of the values stored in the set.
+    ///
+    /// The iterator produces items of type `Self::Native` by copying each element from the
+    /// underlying `HashSet`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashSet;
+    /// // trait impl is provided for `HashSet<T, RandomState>` in scope
+    /// let mut s: HashSet<i32> = HashSet::new();
+    /// s.insert(10);
+    /// let vals: Vec<i32> = s.iter_values().collect();
+    /// assert_eq!(vals.len(), 1);
+    /// assert!(vals.contains(&10));
+    /// ```
     fn iter_values(&self) -> Box<dyn Iterator<Item = Self::Native> + '_> {
         Box::new(self.iter().copied())
     }
 
+    /// Extends the distinct-value storage with all values produced by the iterator.
+    ///
+    /// Duplicate values are ignored; only values not already present may increase storage size.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashSet;
+    /// // `DistinctStorage` is implemented for `HashSet<T, RandomState>` so the method is available.
+    /// let mut s: HashSet<i32> = HashSet::default();
+    /// s.extend_values([1, 2, 2, 3]);
+    /// assert_eq!(s.len(), 3);
+    /// ```
     fn extend_values<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = Self::Native>,
@@ -152,18 +208,71 @@ where
 {
     type Native = T;
 
+    /// Inserts `value` into the set, returning whether it was newly added.
+    ///
+    /// Returns `true` if the value was not previously present and was inserted, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashSet;
+    ///
+    /// // Assuming `Hashable` wraps a primitive type and this impl is for `HashSet<Hashable<i32>>`.
+    /// let mut set: HashSet<Hashable<i32>> = HashSet::new();
+    /// assert!(set.insert(Hashable(1))); // newly inserted
+    /// assert!(!set.insert(Hashable(1))); // already present
+    /// ```
     fn insert(&mut self, value: Self::Native) -> bool {
         HashSet::insert(self, Hashable(value))
     }
 
+    /// Returns the number of distinct values currently stored.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashSet;
+    /// let mut set: HashSet<i32> = HashSet::new();
+    /// set.insert(10);
+    /// assert_eq!(set.len(), 1);
+    /// ```
     fn len(&self) -> usize {
         HashSet::len(self)
     }
 
+    /// Returns an iterator over the stored native values.
+    ///
+    /// The iterator yields each distinct native value stored in the hash set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashSet;
+    /// use datafusion::functions::aggregate::common::utils::Hashable;
+    /// // Create a set of Hashable values and collect the native values.
+    /// let mut set: HashSet<Hashable<i32>> = HashSet::new();
+    /// set.insert(Hashable(1));
+    /// set.insert(Hashable(2));
+    /// let mut vals: Vec<i32> = set.iter_values().collect();
+    /// vals.sort();
+    /// assert_eq!(vals, vec![1, 2]);
+    /// ```
     fn iter_values(&self) -> Box<dyn Iterator<Item = Self::Native> + '_> {
         Box::new(self.iter().map(|h| h.0))
     }
 
+    /// Extend the storage with values from an iterator.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::collections::HashSet;
+    /// // `Hashable` is a small wrapper used by this storage implementation.
+    /// // Assume Hashable<i32> is in scope as in the module where this method is defined.
+    /// let mut set: HashSet<Hashable<i32>> = HashSet::default();
+    /// set.extend_values([1i32, 2, 3]);
+    /// assert_eq!(set.len(), 3);
+    /// ```
     fn extend_values<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = Self::Native>,
@@ -279,6 +388,17 @@ pub struct GenericDistinctBuffer<T: ArrowPrimitiveType, S: DistinctStorage<Nativ
 impl<T: ArrowPrimitiveType, S: DistinctStorage<Native = T::Native>> std::fmt::Debug
     for GenericDistinctBuffer<T, S>
 {
+    /// Formats the buffer for debug output.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// // create a buffer for 32-bit integers and check its debug representation
+    /// let buf = GenericDistinctBuffer::<Int32Type, std::collections::HashSet<i32>>::new(DataType::Int32);
+    /// let s = format!("{:?}", buf);
+    /// assert!(s.contains("GenericDistinctBuffer"));
+    /// assert!(s.contains("values="));
+    /// ```
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -290,6 +410,19 @@ impl<T: ArrowPrimitiveType, S: DistinctStorage<Native = T::Native>> std::fmt::De
 }
 
 impl<T: ArrowPrimitiveType, S: DistinctStorage<Native = T::Native>> GenericDistinctBuffer<T, S> {
+    /// Creates a new distinct-value buffer for the given element data type with an empty storage.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use datafusion::functions::aggregate::utils::GenericDistinctBuffer;
+    /// use arrow::datatypes::DataType;
+    /// use std::collections::HashSet;
+    ///
+    /// // Create a buffer for Int32 values backed by the default HashSet storage.
+    /// let buf = GenericDistinctBuffer::<arrow::datatypes::Int32Type, HashSet<i32>>::new(DataType::Int32);
+    /// assert!(buf.values.is_empty());
+    /// ```
     pub fn new(data_type: DataType) -> Self {
         Self {
             values: S::default(),
@@ -298,7 +431,20 @@ impl<T: ArrowPrimitiveType, S: DistinctStorage<Native = T::Native>> GenericDisti
         }
     }
 
-    /// Mirrors [`Accumulator::state`].
+    /// Returns a single-element vector containing the buffer's serialized distinct-values state as a `ScalarValue`.
+    ///
+    /// The returned `ScalarValue` is a one-row list whose element is a primitive array typed to the buffer's
+    /// `data_type` (preserving details like decimal precision/scale and timestamp timezones).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use datafusion_common::ScalarValue;
+    /// // `buf` is a GenericDistinctBuffer for some primitive type T
+    /// // let buf = GenericDistinctBuffer::<Int32Type, _>::new(DataType::Int32);
+    /// // let state: Vec<ScalarValue> = buf.state().unwrap();
+    /// // state.len() == 1
+    /// ```
     pub fn state(&self) -> Result<Vec<ScalarValue>> {
         let arr = Arc::new(
             PrimitiveArray::<T>::from_iter_values(self.values.iter_values())
@@ -310,7 +456,27 @@ impl<T: ArrowPrimitiveType, S: DistinctStorage<Native = T::Native>> GenericDisti
         Ok(vec![SingleRowListArrayBuilder::new(arr).build_list_scalar()])
     }
 
-    /// Mirrors [`Accumulator::update_batch`].
+    /// Adds distinct primitive values from a single input array into the buffer.
+    ///
+    /// If `values` is empty this is a no-op. Expects exactly one input array; when the input
+    /// contains nulls only the present values are added, otherwise the underlying values are
+    /// copied directly into the distinct-value storage.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::collections::HashSet;
+    /// use arrow_array::{Int32Array, ArrayRef};
+    /// use arrow_schema::DataType;
+    ///
+    /// // Construct a GenericDistinctBuffer for Int32 using a HashSet storage.
+    /// let mut buf = crate::utils::GenericDistinctBuffer::<arrow::datatypes::Int32Type, HashSet<i32>>::new(DataType::Int32);
+    ///
+    /// let arr: ArrayRef = Arc::new(Int32Array::from(vec![Some(1), Some(2), None]));
+    /// buf.update_batch(&[arr]).unwrap();
+    /// assert_eq!(buf.values.len(), 2);
+    /// ```
     pub fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         if values.is_empty() {
             return Ok(());

@@ -176,6 +176,27 @@ impl Count {
         }
     }
 }
+/// Selects and constructs a distinct-count accumulator optimized for the given data type.
+///
+/// Returns a specialized accumulator when a fast implementation exists for `data_type` (primitive,
+/// floating, temporal, decimal, binary/UTF8, or dictionary-backed types); otherwise returns a
+/// generic distinct-count accumulator that uses `ScalarValue`-based storage.
+///
+/// # Parameters
+///
+/// * `data_type` - The input data type to base accumulator selection on.
+///
+/// # Returns
+///
+/// `Box<dyn Accumulator>` specialized for counting distinct values of the provided `data_type`,
+/// or a generic distinct-count accumulator when no specialized implementation is available.
+///
+/// # Examples
+///
+/// ```
+/// use arrow::datatypes::DataType;
+/// let _acc = get_count_accumulator(&DataType::Int32);
+/// ```
 fn get_count_accumulator(data_type: &DataType) -> Box<dyn Accumulator> {
     match data_type {
         // try and use a specialized accumulator if possible, otherwise fall back to generic accumulator

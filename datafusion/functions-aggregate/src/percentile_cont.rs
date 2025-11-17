@@ -662,6 +662,21 @@ struct DistinctPercentileContAccumulator<T: ArrowNumericType> {
 }
 
 impl<T: ArrowNumericType + Send + Sync + Debug> Accumulator for DistinctPercentileContAccumulator<T> {
+    /// Get the accumulator's current intermediate state representing the distinct observed values.
+    ///
+    /// The state is suitable for serialization/merging and reflects the distinct values collected so far.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(Vec<ScalarValue>)` containing the accumulator state (typically a single list `ScalarValue` of distinct values) on success, or an error on failure.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // `acc` is a mutable DistinctPercentileContAccumulator instance.
+    /// let mut acc = /* construct accumulator */ unimplemented!();
+    /// let state = acc.state().unwrap();
+    /// ```
     fn state(&mut self) -> Result<Vec<ScalarValue>> {
         self.distinct_values.state()
     }
